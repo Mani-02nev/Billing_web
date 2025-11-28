@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AC Duct Billing – Mobile</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <!-- jsPDF + AutoTable -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script>
+
+  <!-- SheetJS for Excel export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+  <style>
+    :root {
+      --primary: #6750a4;
+      --primary-container:#eaddff;
+      --secondary:#03dac6;
+      --background:#f5f5f7;
+      --surface:#ffffff;
+      --surface-variant:#e7e0ec;
+      --outline:#cac4d0;
+      --on-primary:#ffffff;
+      --on-surface:#1d1b20;
+      --on-surface-variant:#49454f;
+      --error:#b3261e;
+      --radius-card:18px;
+    }
+
+    * { box-sizing:border-box; }
+
+    body {
+      margin:0;
+      font-family:"Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:var(--background);
+      color:var(--on-surface);
+    }
+
+    /* Top AppBar */
+    .appbar {
+      position:sticky;
+      top:0;
+      z-index:20;
+      background:var(--surface);
+      border-bottom:1px solid #e0e0e0;
+      padding:10px 16px 8px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+    }
+    .appbar-title {
+      font-size:18px;
+      font-weight:700;
+    }
+    .appbar-sub {
+      font-size:12px;
+      color:var(--on-surface-variant);
+    }
+    .chip {
+      padding:4px 10px;
+      border-radius:999px;
+      border:1px solid var(--outline);
+      font-size:11px;
+      color:var(--on-surface-variant);
+    }
+
+    /* Layout */
+    .content {
+      padding:12px 12px 72px; /* bottom pad for nav */
+      max-width:960px;
+      margin:0 auto;
+    }
+
+    .screen { display:none; }
+    .screen.active { display:block; }
+
+    /* Cards */
+    .card {
+      background:var(--surface);
+      border-radius:var(--radius-card);
+      box-shadow:0 4px 10px rgba(0,0,0,0.06);
+      padding:14px 14px 10px;
+      margin-bottom:12px;
+    }
+    .card-title {
+      font-size:15px;
+      font-weight:600;
+      margin-bottom:8px;
+    }
+    .card-sub {
+      font-size:12px;
+      color:var(--on-surface-variant);
+      margin-bottom:8px;
+    }
+
+    .row {
+      display:flex;
+      gap:8px;
+    }
+    .row > * { flex:1; }
+
+    label {
+      display:block;
+      font-size:12px;
+      color:var(--on-surface-variant);
+      margin:8px 0 4px;
+    }
+    input, select, textarea {
+      width:100%;
+      border-radius:999px;
+      border:1px solid var(--outline);
+      padding:10px 14px;
+      font-size:13px;
+      background:#fdfbff;
+      outline:none;
+    }
+    textarea {
+      border-radius:18px;
+      min-height:70px;
+      resize:vertical;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color:var(--primary);
+      box-shadow:0 0 0 1px var(--primary-container);
+    }
+
+    /* Buttons */
+    .btn {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      padding:10px 16px;
+      border-radius:999px;
+      border:none;
+      font-size:13px;
+      font-weight:500;
+      background:#e6e0f8;
+      color:var(--on-surface);
+      cursor:pointer;
+      margin-top:8px;
+    }
+    .btn-primary {
+      background:var(--primary);
+      color:var(--on-primary);
+    }
+    .btn-tonal {
+      background:var(--primary-container);
+      color:var(--on-surface);
+    }
+    .btn-danger {
+      background:#ffdad6;
+      color:var(--error);
+    }
+    .btn-full { width:100%; }
+
+    /* Stats */
+    .stat-grid {
+      display:flex;
+      gap:8px;
+    }
+    .stat {
+      flex:1;
+      border-radius:14px;
+      background:var(--primary-container);
+      padding:8px 10px;
+      display:flex;
+      flex-direction:column;
+      justify-content:space-between;
+    }
+    .stat-label {
+      font-size:11px;
+      color:var(--on-surface-variant);
+    }
+    .stat-value {
+      font-size:20px;
+      font-weight:700;
+    }
+
+    /* Table (for mobile) */
+    table {
+      width:100%;
+      border-collapse:collapse;
+      font-size:12px;
+    }
+    th, td {
+      padding:6px 4px;
+      border-bottom:1px solid #eee7f5;
+    }
+    th {
+      text-align:left;
+      color:var(--on-surface-variant);
+      font-weight:500;
+    }
+    .text-right { text-align:right; }
+    .text-small { font-size:11px; }
+
+    /* Bottom Navigation */
+    .bottom-nav {
+      position:fixed;
+      bottom:0;
+      left:0;
+      right:0;
+      height:60px;
+      background:var(--surface);
+      border-top:1px solid #ddd;
+      display:flex;
+      justify-content:space-around;
+      align-items:center;
+      z-index:30;
+    }
+    .nav-item {
+      flex:1;
+      text-align:center;
+      font-size:11px;
+      color:var(--on-surface-variant);
+      padding-top:4px;
+    }
+    .nav-item span {
+      display:block;
+      font-size:18px;
+      line-height:18px;
+    }
+    .nav-item.active {
+      color:var(--primary);
+      font-weight:500;
+    }
+
+    /* Helpers */
+    .spacer-6 { height:6px; }
+    .spacer-10 { height:10px; }
+    .badge {
+      display:inline-block;
+      padding:2px 8px;
+      border-radius:999px;
+      background:var(--surface-variant);
+      color:var(--on-surface-variant);
+      font-size:10px;
+    }
+
+    @media(min-width:768px) {
+      .content { padding:16px 16px 80px; }
+      .card { padding:16px 18px 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar -->
+  <header class="appbar">
+    <div>
+      <div class="appbar-title">AC Duct Billing</div>
+      <div class="appbar-sub" id="todayText">Today</div>
+    </div>
+    <div class="chip" id="companyChip">Your Company</div>
+  </header>
+
+  <main class="content">
+    <!-- DASHBOARD -->
+    <section id="screen-dashboard" class="screen active">
+      <div class="card">
+        <div class="card-title">Overview</div>
+        <div class="spacer-6"></div>
+        <div class="stat-grid">
+          <div class="stat">
+            <div class="stat-label">Customers</div>
+            <div class="stat-value" id="statCustomers">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Sellers</div>
+            <div class="stat-value" id="statSellers">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label">Invoices (this month)</div>
+            <div class="stat-value" id="statInvoices">0</div>
+          </div>
+        </div>
+        <div class="spacer-10"></div>
+        <button class="btn btn-primary btn-full" onclick="gotoScreen('invoice')">+ New Invoice</button>
+        <button class="btn btn-tonal btn-full" onclick="gotoScreen('po')">+ New PO</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Recent Invoices</div>
+        <div class="card-sub">Last 5 invoices</div>
+        <table>
+          <thead>
+            <tr><th>#</th><th>Customer</th><th class="text-right">Total</th></tr>
+          </thead>
+          <tbody id="dashInvList"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- MASTER DATA -->
+    <section id="screen-master" class="screen">
+      <!-- Customers -->
+      <div class="card">
+        <div class="card-title">Customers</div>
+        <div class="card-sub">Add / manage your customers</div>
+        <label>Customer Name</label>
+        <input id="custName" placeholder="ABC Projects">
+        <label>Phone</label>
+        <input id="custPhone" placeholder="+91">
+        <label>Address</label>
+        <textarea id="custAddr" placeholder="Street, City, PIN"></textarea>
+        <label>GSTIN (optional)</label>
+        <input id="custGST" placeholder="27ABCDE1234F1Z5">
+        <button class="btn btn-primary btn-full" onclick="addCustomer()">Save Customer</button>
+
+        <div class="spacer-10"></div>
+        <table>
+          <thead><tr><th>Name</th><th class="text-right">Actions</th></tr></thead>
+          <tbody id="custTable"></tbody>
+        </table>
+      </div>
+
+      <!-- Sellers -->
+      <div class="card">
+        <div class="card-title">Sellers</div>
+        <div class="card-sub">Vendors / suppliers for PO</div>
+        <label>Seller Name</label>
+        <input id="sellName" placeholder="SteelCo Traders">
+        <label>Phone</label>
+        <input id="sellPhone" placeholder="+91">
+        <label>Address</label>
+        <textarea id="sellAddr" placeholder="Street, City, PIN"></textarea>
+        <label>GSTIN (optional)</label>
+        <input id="sellGST" placeholder="27ABCDE1234F1Z5">
+        <button class="btn btn-primary btn-full" onclick="addSeller()">Save Seller</button>
+
+        <div class="spacer-10"></div>
+        <table>
+          <thead><tr><th>Name</th><th class="text-right">Actions</th></tr></thead>
+          <tbody id="sellTable"></tbody>
+        </table>
+      </div>
+
+      <!-- Products -->
+      <div class="card">
+        <div class="card-title">Products / Services</div>
+        <div class="card-sub">Used in PO & Invoice</div>
+        <label>Item Name</label>
+        <input id="prodName" placeholder="GI Duct 24G">
+        <div class="row">
+          <div>
+            <label>Unit</label>
+            <input id="prodUnit" placeholder="sq.ft / meter / nos">
+          </div>
+          <div>
+            <label>Rate (₹)</label>
+            <input id="prodRate" type="number" step="0.01" placeholder="0.00">
+          </div>
+        </div>
+        <label>GST %</label>
+        <input id="prodGST" type="number" step="0.1" placeholder="18">
+        <button class="btn btn-primary btn-full" onclick="addProduct()">Save Product</button>
+
+        <div class="spacer-10"></div>
+        <table>
+          <thead><tr><th>Item</th><th class="text-right">Rate</th></tr></thead>
+          <tbody id="prodTable"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PO SCREEN -->
+    <section id="screen-po" class="screen">
+      <div class="card">
+        <div class="card-title">Create PO</div>
+        <div class="card-sub">Purchase Order for your seller</div>
+
+        <div class="row">
+          <div>
+            <label>Date</label>
+            <input id="poDate" type="date">
+          </div>
+          <div>
+            <label>Seller</label>
+            <select id="poSeller"></select>
+          </div>
+        </div>
+        <label>Reference / Note</label>
+        <input id="poRef" placeholder="Site / Project ref">
+
+        <div class="spacer-6"></div>
+        <div class="badge">PO Items</div>
+
+        <div id="poItems"></div>
+        <button class="btn btn-tonal btn-full" onclick="addPOItem()">+ Add item</button>
+
+        <div class="spacer-6"></div>
+        <div class="row">
+          <div>
+            <div class="text-small">Subtotal</div>
+            <div id="poSub">₹0.00</div>
+          </div>
+          <div>
+            <div class="text-small">Estimated GST</div>
+            <div id="poGST">₹0.00</div>
+          </div>
+          <div>
+            <div class="text-small">Grand Total</div>
+            <div id="poTotal" style="font-weight:700;">₹0.00</div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-full" onclick="savePO()">Save PO</button>
+        <button class="btn btn-tonal btn-full" onclick="downloadPOPDF()">Download PO PDF</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Saved POs</div>
+        <table>
+          <thead><tr><th>#</th><th>Date</th><th>Seller</th><th class="text-right">Total</th></tr></thead>
+          <tbody id="poList"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- INVOICE SCREEN -->
+    <section id="screen-invoice" class="screen">
+      <div class="card">
+        <div class="card-title">Create Invoice</div>
+        <div class="card-sub">Tax Invoice for customer</div>
+
+        <div class="row">
+          <div>
+            <label>Date</label>
+            <input id="invDate" type="date">
+          </div>
+          <div>
+            <label>Customer</label>
+            <select id="invCustomer"></select>
+          </div>
+        </div>
+        <div class="row">
+          <div>
+            <label>Invoice #</label>
+            <input id="invNumber" placeholder="INV-001">
+          </div>
+          <div>
+            <label>Due Days</label>
+            <input id="invDue" type="number" placeholder="7">
+          </div>
+        </div>
+
+        <div class="badge">Invoice Items</div>
+        <div id="invItems"></div>
+        <button class="btn btn-tonal btn-full" onclick="addInvItem()">+ Add item</button>
+
+        <div class="spacer-6"></div>
+        <div class="row">
+          <div>
+            <div class="text-small">Subtotal</div>
+            <div id="invSub">₹0.00</div>
+          </div>
+          <div>
+            <div class="text-small">GST</div>
+            <div id="invGST">₹0.00</div>
+          </div>
+          <div>
+            <div class="text-small">Grand Total</div>
+            <div id="invTotal" style="font-weight:700;">₹0.00</div>
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-full" onclick="saveInvoice()">Save Invoice</button>
+        <button class="btn btn-tonal btn-full" onclick="downloadInvoicePDF()">Download Invoice PDF</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Saved Invoices</div>
+        <table>
+          <thead><tr><th>#</th><th>Date</th><th>Customer</th><th class="text-right">Total</th></tr></thead>
+          <tbody id="invList"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- REPORTS -->
+    <section id="screen-reports" class="screen">
+      <div class="card">
+        <div class="card-title">Monthly Sales Report</div>
+        <div class="card-sub">Filter invoice totals by month</div>
+        <div class="row">
+          <div>
+            <label>Month</label>
+            <input id="repMonth" type="month">
+          </div>
+          <div style="align-self:flex-end;">
+            <button class="btn btn-primary" onclick="loadMonthly()">Show</button>
+          </div>
+        </div>
+        <div class="spacer-6"></div>
+        <table>
+          <thead>
+            <tr><th>Date</th><th>#</th><th>Customer</th><th class="text-right">Total</th></tr>
+          </thead>
+          <tbody id="repRows"></tbody>
+          <tfoot>
+            <tr>
+              <th colspan="3" class="text-right">Total</th>
+              <th class="text-right" id="repTotal">₹0.00</th>
+            </tr>
+          </tfoot>
+        </table>
+        <button class="btn btn-tonal btn-full" onclick="exportMonthExcel()">Export Month to Excel</button>
+        <button class="btn btn-tonal btn-full" onclick="exportAllExcel()">Export All Data to Excel</button>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="screen-settings" class="screen">
+      <div class="card">
+        <div class="card-title">Company Profile</div>
+        <div class="card-sub">Shown on PO / Invoice PDF</div>
+        <label>Company Name</label>
+        <input id="cfgName" placeholder="Your Company Pvt Ltd">
+        <label>Address</label>
+        <textarea id="cfgAddr" placeholder="Street, City, State, PIN"></textarea>
+        <label>Phone</label>
+        <input id="cfgPhone" placeholder="+91">
+        <label>Email</label>
+        <input id="cfgEmail" placeholder="info@company.com">
+        <label>GSTIN</label>
+        <input id="cfgGST" placeholder="27ABCDE1234F1Z5">
+        <button class="btn btn-primary btn-full" onclick="saveConfig()">Save Profile</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Data</div>
+        <div class="card-sub">All data is local to this browser</div>
+        <button class="btn btn-danger btn-full" onclick="if(confirm('Clear all data?')) {db = blank(); saveDB(); render();}">Clear All Data</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom Navigation -->
+  <nav class="bottom-nav">
+    <div class="nav-item active" data-target="dashboard" onclick="clickNav(this)">
+      <span>🏠</span>Home
+    </div>
+    <div class="nav-item" data-target="master" onclick="clickNav(this)">
+      <span>📇</span>Master
+    </div>
+    <div class="nav-item" data-target="po" onclick="clickNav(this)">
+      <span>📦</span>PO
+    </div>
+    <div class="nav-item" data-target="invoice" onclick="clickNav(this)">
+      <span>🧾</span>Invoice
+    </div>
+    <div class="nav-item" data-target="reports" onclick="clickNav(this)">
+      <span>📊</span>Reports
+    </div>
+    <div class="nav-item" data-target="settings" onclick="clickNav(this)">
+      <span>⚙️</span>Settings
+    </div>
+  </nav>
+
+  <script>
+    /* ---------- STORAGE ---------- */
+    const KEY = "acDuctMobileDB.v1";
+
+    const blank = () => ({
+      config:{ name:"Your Company", addr:"", phone:"", email:"", gst:"" },
+      customers:[],
+      sellers:[],
+      products:[],
+      pos:[],
+      invoices:[]
+    });
+
+    function loadDB() {
+      try {
+        return JSON.parse(localStorage.getItem(KEY)) || blank();
+      } catch(e) {
+        return blank();
+      }
+    }
+    function saveDB() {
+      localStorage.setItem(KEY, JSON.stringify(db));
+    }
+
+    let db = loadDB();
+
+    const byId = id => document.getElementById(id);
+    const rs = n => "₹"+(Number(n||0).toFixed(2));
+    const uid = () => Math.random().toString(36).slice(2,9);
+    const sum = arr => arr.reduce((a,b)=>a+Number(b||0),0);
+
+    /* ---------- NAVIGATION ---------- */
+    function showScreen(name) {
+      document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+      byId("screen-"+name).classList.add("active");
+    }
+    function clickNav(el) {
+      document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+      el.classList.add("active");
+      const t = el.getAttribute("data-target");
+      showScreen(t);
+    }
+    function gotoScreen(name) {
+      const nav = document.querySelector(`.nav-item[data-target='${name}']`);
+      if(nav) clickNav(nav);
+    }
+
+    /* ---------- MASTER: CUSTOMERS ---------- */
+    function addCustomer() {
+      const name = byId("custName").value.trim();
+      if(!name) return alert("Enter customer name");
+      db.customers.push({
+        id:uid(),
+        name,
+        phone:byId("custPhone").value.trim(),
+        addr:byId("custAddr").value.trim(),
+        gst:byId("custGST").value.trim()
+      });
+      saveDB();
+      byId("custName").value = "";
+      byId("custPhone").value = "";
+      byId("custAddr").value = "";
+      byId("custGST").value = "";
+      renderCustomers();
+      renderStats();
+      fillCustomerSelect();
+    }
+    function deleteCustomer(id) {
+      db.customers = db.customers.filter(c => c.id!==id);
+      saveDB();
+      renderCustomers();
+      renderStats();
+      fillCustomerSelect();
+    }
+    function renderCustomers() {
+      const tbody = byId("custTable");
+      tbody.innerHTML = db.customers.map(c => `
+        <tr>
+          <td>${c.name}</td>
+          <td class="text-right">
+            <button class="btn btn-danger" style="padding:4px 8px;font-size:10px;" onclick="deleteCustomer('${c.id}')">Delete</button>
+          </td>
+        </tr>
+      `).join("") || `<tr><td colspan="2" class="text-small">No customers yet</td></tr>`;
+    }
+
+    /* ---------- MASTER: SELLERS ---------- */
+    function addSeller() {
+      const name = byId("sellName").value.trim();
+      if(!name) return alert("Enter seller name");
+      db.sellers.push({
+        id:uid(),
+        name,
+        phone:byId("sellPhone").value.trim(),
+        addr:byId("sellAddr").value.trim(),
+        gst:byId("sellGST").value.trim()
+      });
+      saveDB();
+      byId("sellName").value = "";
+      byId("sellPhone").value = "";
+      byId("sellAddr").value = "";
+      byId("sellGST").value = "";
+      renderSellers();
+      renderStats();
+      fillSellerSelect();
+    }
+    function deleteSeller(id) {
+      db.sellers = db.sellers.filter(s => s.id!==id);
+      saveDB();
+      renderSellers();
+      renderStats();
+      fillSellerSelect();
+    }
+    function renderSellers() {
+      const tbody = byId("sellTable");
+      tbody.innerHTML = db.sellers.map(s => `
+        <tr>
+          <td>${s.name}</td>
+          <td class="text-right">
+            <button class="btn btn-danger" style="padding:4px 8px;font-size:10px;" onclick="deleteSeller('${s.id}')">Delete</button>
+          </td>
+        </tr>
+      `).join("") || `<tr><td colspan="2" class="text-small">No sellers yet</td></tr>`;
+    }
+
+    /* ---------- MASTER: PRODUCTS ---------- */
+    function addProduct() {
+      const name = byId("prodName").value.trim();
+      if(!name) return alert("Enter item name");
+      db.products.push({
+        id:uid(),
+        name,
+        unit:byId("prodUnit").value.trim(),
+        rate:Number(byId("prodRate").value || 0),
+        gst:Number(byId("prodGST").value || 0)
+      });
+      saveDB();
+      byId("prodName").value = "";
+      byId("prodUnit").value = "";
+      byId("prodRate").value = "";
+      byId("prodGST").value = "";
+      renderProducts();
+    }
+    function deleteProduct(id) {
+      db.products = db.products.filter(p => p.id!==id);
+      saveDB();
+      renderProducts();
+    }
+    function renderProducts() {
+      const tbody = byId("prodTable");
+      tbody.innerHTML = db.products.map(p => `
+        <tr>
+          <td>${p.name}</td>
+          <td class="text-right">
+            ${rs(p.rate)}
+          </td>
+        </tr>
+      `).join("") || `<tr><td colspan="2" class="text-small">No products yet</td></tr>`;
+    }
+
+    /* ---------- SELECT HELPERS ---------- */
+    function fillSellerSelect() {
+      const sel = byId("poSeller");
+      sel.innerHTML = `<option value="">Select seller</option>` +
+        db.sellers.map(s => `<option value="${s.id}">${s.name}</option>`).join("");
+    }
+    function fillCustomerSelect() {
+      const sel = byId("invCustomer");
+      sel.innerHTML = `<option value="">Select customer</option>` +
+        db.customers.map(c => `<option value="${c.id}">${c.name}</option>`).join("");
+    }
+
+    /* ---------- PO ---------- */
+    function addPOItem() {
+      const wrap = document.createElement("div");
+      wrap.className = "card";
+      wrap.style.margin = "6px 0";
+      wrap.innerHTML = `
+        <div class="card-sub">Item</div>
+        <label>Product</label>
+        <select class="po-item-prod"></select>
+        <div class="row">
+          <div>
+            <label>Qty</label>
+            <input type="number" step="0.01" class="po-item-qty" value="1">
+          </div>
+          <div>
+            <label>Rate (₹)</label>
+            <input type="number" step="0.01" class="po-item-rate">
+          </div>
+        </div>
+        <label>GST %</label>
+        <input type="number" step="0.1" class="po-item-gst">
+        <div class="row" style="margin-top:4px;">
+          <div class="text-small">Line Total (incl GST)</div>
+          <div class="text-small text-right po-item-total">₹0.00</div>
+        </div>
+        <button class="btn btn-danger btn-full" onclick="this.parentElement.remove(); calcPO()">Remove Item</button>
+      `;
+      byId("poItems").appendChild(wrap);
+      // fill products
+      const sel = wrap.querySelector(".po-item-prod");
+      sel.innerHTML = `<option value="">Select product</option>` +
+        db.products.map(p => `<option value="${p.id}">${p.name}</option>`).join("");
+      sel.onchange = () => {
+        const p = db.products.find(x => x.id===sel.value);
+        if(p) {
+          wrap.querySelector(".po-item-rate").value = p.rate;
+          wrap.querySelector(".po-item-gst").value = p.gst;
+          calcPO();
+        }
+      };
+      ["po-item-qty","po-item-rate","po-item-gst"].forEach(cls => {
+        wrap.querySelector("."+cls).oninput = calcPO;
+      });
+      calcPO();
+    }
+
+    function calcPO() {
+      const itemCards = byId("poItems").querySelectorAll(".card");
+      let sub = 0, gstTotal = 0;
+      itemCards.forEach(card => {
+        const qty = Number(card.querySelector(".po-item-qty").value || 0);
+        const rate = Number(card.querySelector(".po-item-rate").value || 0);
+        const gst = Number(card.querySelector(".po-item-gst").value || 0);
+        const base = qty * rate;
+        const gstAmt = base * gst / 100;
+        const line = base + gstAmt;
+        sub += base;
+        gstTotal += gstAmt;
+        card.querySelector(".po-item-total").textContent = rs(line);
+      });
+      byId("poSub").textContent = rs(sub);
+      byId("poGST").textContent = rs(gstTotal);
+      byId("poTotal").textContent = rs(sub+gstTotal);
+    }
+
+    function savePO() {
+      const sellerId = byId("poSeller").value;
+      if(!sellerId) return alert("Select seller");
+      const cards = byId("poItems").querySelectorAll(".card");
+      if(!cards.length) return alert("Add at least one item");
+      let items = [];
+      cards.forEach(card => {
+        const prodId = card.querySelector(".po-item-prod").value;
+        const prod = db.products.find(p => p.id===prodId);
+        const qty = Number(card.querySelector(".po-item-qty").value || 0);
+        const rate = Number(card.querySelector(".po-item-rate").value || 0);
+        const gst = Number(card.querySelector(".po-item-gst").value || 0);
+        const base = qty*rate;
+        const gstAmt = base*gst/100;
+        items.push({
+          name: prod ? prod.name : "",
+          unit: prod ? prod.unit : "",
+          qty, rate, gst,
+          base, gstAmt
+        });
+      });
+      const subtotal = sum(items.map(i=>i.base));
+      const gstTotal = sum(items.map(i=>i.gstAmt));
+      const total = subtotal + gstTotal;
+      const po = {
+        id:uid(),
+        date: byId("poDate").value || new Date().toISOString().slice(0,10),
+        sellerId,
+        ref: byId("poRef").value.trim(),
+        items,
+        subtotal, gst:gstTotal, total
+      };
+      db.pos.unshift(po);
+      saveDB();
+      renderPOs();
+      alert("PO saved");
+    }
+
+    function renderPOs() {
+      const tb = byId("poList");
+      tb.innerHTML = db.pos.map((p,i) => {
+        const seller = db.sellers.find(s=>s.id===p.sellerId);
+        return `<tr>
+          <td>${i+1}</td>
+          <td>${p.date}</td>
+          <td>${seller ? seller.name : ""}</td>
+          <td class="text-right">${rs(p.total)}</td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="4" class="text-small">No POs yet</td></tr>`;
+    }
+
+    /* ---------- INVOICE ---------- */
+    function addInvItem() {
+      const wrap = document.createElement("div");
+      wrap.className = "card";
+      wrap.style.margin = "6px 0";
+      wrap.innerHTML = `
+        <div class="card-sub">Item</div>
+        <label>Product</label>
+        <select class="inv-item-prod"></select>
+        <div class="row">
+          <div>
+            <label>Qty</label>
+            <input type="number" step="0.01" class="inv-item-qty" value="1">
+          </div>
+          <div>
+            <label>Rate (₹)</label>
+            <input type="number" step="0.01" class="inv-item-rate">
+          </div>
+        </div>
+        <label>GST %</label>
+        <input type="number" step="0.1" class="inv-item-gst">
+        <div class="row" style="margin-top:4px;">
+          <div class="text-small">Line Total (incl GST)</div>
+          <div class="text-small text-right inv-item-total">₹0.00</div>
+        </div>
+        <button class="btn btn-danger btn-full" onclick="this.parentElement.remove(); calcInvoice()">Remove Item</button>
+      `;
+      byId("invItems").appendChild(wrap);
+      const sel = wrap.querySelector(".inv-item-prod");
+      sel.innerHTML = `<option value="">Select product</option>`+
+        db.products.map(p=>`<option value="${p.id}">${p.name}</option>`).join("");
+      sel.onchange = () => {
+        const p = db.products.find(x=>x.id===sel.value);
+        if(p) {
+          wrap.querySelector(".inv-item-rate").value = p.rate;
+          wrap.querySelector(".inv-item-gst").value = p.gst;
+          calcInvoice();
+        }
+      };
+      ["inv-item-qty","inv-item-rate","inv-item-gst"].forEach(cls => {
+        wrap.querySelector("."+cls).oninput = calcInvoice;
+      });
+      calcInvoice();
+    }
+
+    function calcInvoice() {
+      const cards = byId("invItems").querySelectorAll(".card");
+      let sub=0, gstTotal=0;
+      cards.forEach(card => {
+        const qty = Number(card.querySelector(".inv-item-qty").value || 0);
+        const rate = Number(card.querySelector(".inv-item-rate").value || 0);
+        const gst = Number(card.querySelector(".inv-item-gst").value || 0);
+        const base = qty*rate;
+        const gstAmt = base*gst/100;
+        const line = base+gstAmt;
+        sub += base;
+        gstTotal += gstAmt;
+        card.querySelector(".inv-item-total").textContent = rs(line);
+      });
+      byId("invSub").textContent = rs(sub);
+      byId("invGST").textContent = rs(gstTotal);
+      byId("invTotal").textContent = rs(sub+gstTotal);
+    }
+
+    function nextInvoiceNumber() {
+      const last = db.invoices[0]?.number || "INV-000";
+      const m = last.match(/(\d+)$/);
+      const num = m ? parseInt(m[1],10)+1 : 1;
+      return "INV-"+String(num).padStart(3,"0");
+    }
+
+    function saveInvoice() {
+      const custId = byId("invCustomer").value;
+      if(!custId) return alert("Select customer");
+      const cards = byId("invItems").querySelectorAll(".card");
+      if(!cards.length) return alert("Add at least one item");
+      const items = [];
+      cards.forEach(card => {
+        const prodId = card.querySelector(".inv-item-prod").value;
+        const prod = db.products.find(p=>p.id===prodId);
+        const qty = Number(card.querySelector(".inv-item-qty").value || 0);
+        const rate = Number(card.querySelector(".inv-item-rate").value || 0);
+        const gst = Number(card.querySelector(".inv-item-gst").value || 0);
+        const base = qty*rate;
+        const gstAmt = base*gst/100;
+        items.push({
+          name:prod?prod.name:"",
+          unit:prod?prod.unit:"",
+          qty, rate, gst, base, gstAmt
+        });
+      });
+      const subtotal = sum(items.map(i=>i.base));
+      const gstTotal = sum(items.map(i=>i.gstAmt));
+      const total = subtotal+gstTotal;
+      const inv = {
+        id:uid(),
+        number: byId("invNumber").value.trim() || nextInvoiceNumber(),
+        date: byId("invDate").value || new Date().toISOString().slice(0,10),
+        dueDays: Number(byId("invDue").value || 7),
+        custId,
+        items,
+        subtotal, gst:gstTotal, total
+      };
+      db.invoices.unshift(inv);
+      saveDB();
+      renderInvoices();
+      renderDashboardInvoices();
+      renderStats();
+      alert("Invoice saved");
+    }
+
+    function renderInvoices() {
+      const tb = byId("invList");
+      tb.innerHTML = db.invoices.map(inv => {
+        const c = db.customers.find(x=>x.id===inv.custId);
+        return `<tr>
+          <td>${inv.number}</td>
+          <td>${inv.date}</td>
+          <td>${c?c.name:""}</td>
+          <td class="text-right">${rs(inv.total)}</td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="4" class="text-small">No invoices yet</td></tr>`;
+    }
+
+    function renderDashboardInvoices() {
+      const tb = byId("dashInvList");
+      tb.innerHTML = db.invoices.slice(0,5).map(inv => {
+        const c = db.customers.find(x=>x.id===inv.custId);
+        return `<tr>
+          <td>${inv.number}</td>
+          <td>${c?c.name:""}</td>
+          <td class="text-right">${rs(inv.total)}</td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="3" class="text-small">No invoices yet</td></tr>`;
+    }
+
+    /* ---------- REPORTS ---------- */
+    function loadMonthly() {
+      const ym = byId("repMonth").value;
+      if(!ym) return;
+      const [y,m] = ym.split("-").map(Number);
+      const list = db.invoices.filter(inv => {
+        const d = new Date(inv.date);
+        return d.getFullYear()===y && (d.getMonth()+1)===m;
+      });
+      const tb = byId("repRows");
+      let total = 0;
+      tb.innerHTML = list.map(inv => {
+        const c = db.customers.find(x=>x.id===inv.custId);
+        total += inv.total;
+        return `<tr>
+          <td>${inv.date}</td>
+          <td>${inv.number}</td>
+          <td>${c?c.name:""}</td>
+          <td class="text-right">${rs(inv.total)}</td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="4" class="text-small">No invoices for this month</td></tr>`;
+      byId("repTotal").textContent = rs(total);
+      // update dashboard monthly count
+      byId("statInvoices").textContent = String(list.length);
+    }
+
+    /* ---------- EXCEL EXPORT ---------- */
+    function exportMonthExcel() {
+      const ym = byId("repMonth").value;
+      if(!ym) return alert("Choose month first");
+      const [y,m] = ym.split("-").map(Number);
+      const list = db.invoices.filter(inv => {
+        const d = new Date(inv.date);
+        return d.getFullYear()===y && (d.getMonth()+1)===m;
+      });
+      const rows = [["Date","Invoice #","Customer","Total"]];
+      list.forEach(inv => {
+        const c = db.customers.find(x=>x.id===inv.custId);
+        rows.push([inv.date, inv.number, c?c.name:"", inv.total]);
+      });
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Month");
+      XLSX.writeFile(wb, "Sales-"+ym+".xlsx");
+    }
+
+    function exportAllExcel() {
+      const wb = XLSX.utils.book_new();
+      // Customers
+      const cRows = [["Name","Phone","GST","Address"]];
+      db.customers.forEach(c => cRows.push([c.name,c.phone,c.gst,c.addr]));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(cRows), "Customers");
+      // Sellers
+      const sRows = [["Name","Phone","GST","Address"]];
+      db.sellers.forEach(s => sRows.push([s.name,s.phone,s.gst,s.addr]));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sRows), "Sellers");
+      // Products
+      const pRows = [["Item","Unit","Rate","GST"]];
+      db.products.forEach(p => pRows.push([p.name,p.unit,p.rate,p.gst]));
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(pRows), "Products");
+      // Invoices
+      const iRows = [["Date","Invoice #","Customer","Subtotal","GST","Total"]];
+      db.invoices.forEach(inv => {
+        const c = db.customers.find(x=>x.id===inv.custId);
+        iRows.push([inv.date,inv.number,c?c.name:"",inv.subtotal,inv.gst,inv.total]);
+      });
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(iRows), "Invoices");
+      XLSX.writeFile(wb, "AC-Duct-Data.xlsx");
+    }
+
+    /* ---------- PDF EXPORT ---------- */
+    function companyHeader(doc) {
+      const cfg = db.config;
+      doc.setFontSize(14);
+      doc.text(cfg.name || "Your Company", 14, 16);
+      doc.setFontSize(9);
+      const lines = [];
+      if(cfg.addr) lines.push(cfg.addr);
+      if(cfg.phone) lines.push("Phone: "+cfg.phone);
+      if(cfg.email) lines.push("Email: "+cfg.email);
+      if(cfg.gst) lines.push("GSTIN: "+cfg.gst);
+      if(lines.length) doc.text(lines.join("\n"), 14, 22);
+    }
+
+    function downloadPOPDF() {
+      const po = db.pos[0];
+      if(!po) return alert("No PO saved yet");
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      companyHeader(doc);
+      doc.setFontSize(16);
+      doc.text("PURCHASE ORDER", 200-14, 16, {align:"right"});
+      doc.setFontSize(10);
+      const seller = db.sellers.find(s=>s.id===po.sellerId) || {};
+      const sellerBlock = `Seller:\n${seller.name||""}\n${seller.addr||""}\nGSTIN: ${seller.gst||""}`;
+      const metaBlock = `PO Date: ${po.date}\nRef: ${po.ref||"-"}`;
+      doc.text(sellerBlock, 14, 55);
+      doc.text(metaBlock, 200-14, 55, {align:"right"});
+
+      const body = po.items.map((i,idx)=>[
+        idx+1,
+        i.name,
+        i.qty + " " + (i.unit || ""),
+        i.rate,
+        i.gst+"%",
+        i.base,
+        i.gstAmt,
+        i.base + i.gstAmt
+      ]);
+      doc.autoTable({
+        head:[["#","Item","Qty","Rate","GST%","Amount","GST","Total"]],
+        body,
+        startY:70,
+        theme:"grid",
+        styles:{fontSize:9},
+        headStyles:{fillColor:[103,80,164]}
+      });
+      const y = doc.lastAutoTable.finalY + 8;
+      doc.setFontSize(11);
+      doc.text("Subtotal: "+rs(po.subtotal), 200-14, y, {align:"right"});
+      doc.text("GST: "+rs(po.gst), 200-14, y+6, {align:"right"});
+      doc.text("Grand Total: "+rs(po.total), 200-14, y+12, {align:"right"});
+      doc.save("PO-"+po.date+".pdf");
+    }
+
+    function downloadInvoicePDF() {
+      const inv = db.invoices[0];
+      if(!inv) return alert("No invoice saved yet");
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      companyHeader(doc);
+      doc.setFontSize(16);
+      doc.text("TAX INVOICE", 200-14, 16, {align:"right"});
+      doc.setFontSize(10);
+      const cust = db.customers.find(c=>c.id===inv.custId) || {};
+      const custBlock = `Bill To:\n${cust.name||""}\n${cust.addr||""}\nGSTIN: ${cust.gst||""}`;
+      const metaBlock = `Invoice: ${inv.number}\nDate: ${inv.date}\nDue in: ${inv.dueDays} days`;
+      doc.text(custBlock, 14, 55);
+      doc.text(metaBlock, 200-14, 55, {align:"right"});
+
+      const body = inv.items.map((i,idx)=>[
+        idx+1,
+        i.name,
+        i.qty + " " + (i.unit || ""),
+        i.rate,
+        i.gst+"%",
+        i.base,
+        i.gstAmt,
+        i.base + i.gstAmt
+      ]);
+      doc.autoTable({
+        head:[["#","Item","Qty","Rate","GST%","Amount","GST","Total"]],
+        body,
+        startY:70,
+        theme:"grid",
+        styles:{fontSize:9},
+        headStyles:{fillColor:[103,80,164]}
+      });
+      const y = doc.lastAutoTable.finalY + 8;
+      doc.setFontSize(11);
+      doc.text("Subtotal: "+rs(inv.subtotal), 200-14, y, {align:"right"});
+      doc.text("GST: "+rs(inv.gst), 200-14, y+6, {align:"right"});
+      doc.text("Grand Total: "+rs(inv.total), 200-14, y+12, {align:"right"});
+      doc.save(inv.number+".pdf");
+    }
+
+    /* ---------- SETTINGS ---------- */
+    function saveConfig() {
+      db.config.name = byId("cfgName").value.trim() || "Your Company";
+      db.config.addr = byId("cfgAddr").value.trim();
+      db.config.phone = byId("cfgPhone").value.trim();
+      db.config.email = byId("cfgEmail").value.trim();
+      db.config.gst = byId("cfgGST").value.trim();
+      saveDB();
+      renderConfig();
+      alert("Profile saved");
+    }
+
+    function renderConfig() {
+      byId("cfgName").value = db.config.name || "";
+      byId("cfgAddr").value = db.config.addr || "";
+      byId("cfgPhone").value = db.config.phone || "";
+      byId("cfgEmail").value = db.config.email || "";
+      byId("cfgGST").value = db.config.gst || "";
+      byId("companyChip").textContent = db.config.name || "Your Company";
+    }
+
+    /* ---------- STATS / DASHBOARD ---------- */
+    function renderStats() {
+      byId("statCustomers").textContent = String(db.customers.length);
+      byId("statSellers").textContent = String(db.sellers.length);
+
+      // monthly invoice count
+      const d = new Date();
+      const y = d.getFullYear(), m = d.getMonth()+1;
+      const count = db.invoices.filter(inv=>{
+        const dd = new Date(inv.date);
+        return dd.getFullYear()===y && (dd.getMonth()+1)===m;
+      }).length;
+      byId("statInvoices").textContent = String(count);
+    }
+
+    /* ---------- INIT SEED (DEMO) ---------- */
+    if(db.customers.length===0 && db.products.length===0 && db.sellers.length===0) {
+      db.config.name = "Times Tech Pvt Ltd";
+      db.customers.push({
+        id:uid(),
+        name:"ABC Projects",
+        phone:"9876543210",
+        addr:"Coimbatore, TN",
+        gst:"33ABCDE1234F1Z5"
+      });
+      db.sellers.push({
+        id:uid(),
+        name:"SteelCo Traders",
+        phone:"9000000000",
+        addr:"Coimbatore, TN",
+        gst:"33ABCDE1234Z5X1"
+      });
+      db.products.push(
+        {id:uid(), name:"GI Duct 24G", unit:"sq.ft", rate:180, gst:18},
+        {id:uid(), name:"Duct Flange", unit:"nos", rate:95, gst:18},
+        {id:uid(), name:"Insulation (Nitrile)", unit:"meter", rate:75, gst:12}
+      );
+      saveDB();
+    }
+
+    /* ---------- RENDER ALL ---------- */
+    function render() {
+      renderCustomers();
+      renderSellers();
+      renderProducts();
+      renderPOs();
+      renderInvoices();
+      renderDashboardInvoices();
+      renderConfig();
+      renderStats();
+      fillSellerSelect();
+      fillCustomerSelect();
+      byId("todayText").textContent = new Date().toLocaleString();
+      // default dates
+      const today = new Date().toISOString().slice(0,10);
+      if(!byId("poDate").value) byId("poDate").value = today;
+      if(!byId("invDate").value) byId("invDate").value = today;
+      if(!byId("repMonth").value) {
+        const d = new Date();
+        const m = String(d.getMonth()+1).padStart(2,"0");
+        byId("repMonth").value = d.getFullYear()+"-"+m;
+      }
+    }
+
+    render();
+  </script>
+</body>
+</html>
